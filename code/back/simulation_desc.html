@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --bg: #020617; --card: #1e293b; --accent: #f43f5e; --text: #f1f5f9; --code-bg: #0f172a; --highlight: #f59e0b; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 40px; line-height: 1.6; }
+        .main-title { font-size: 2rem; color: var(--highlight); border-bottom: 3px solid var(--highlight); padding-bottom: 15px; margin-bottom: 50px; }
+        .block { margin-bottom: 60px; animation: fadeIn 0.5s ease-in; }
+        .code-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--accent); display: flex; align-items: center; }
+        .code-header::before { content: '◈'; margin-right: 10px; color: var(--highlight); }
+        .code-view { background: var(--code-bg); padding: 25px; border-radius: 12px; font-family: 'Fira Code', monospace; font-size: 0.9rem; border: 1px solid #334155; overflow-x: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        .explain-box { margin-top: 20px; padding: 20px; background: var(--card); border-radius: 0 0 12px 12px; border-top: 2px solid #334155; }
+        .explain-box h4 { margin: 0 0 10px 0; color: var(--highlight); font-size: 1rem; }
+        .explain-box p { margin: 0; font-size: 0.95rem; color: #cbd5e1; }
+        pre { margin: 0; white-space: pre-wrap; word-break: break-all; color: #d4d4d4; }
+        b { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h1 class="main-title">Simulation Control (simulation.py) Analysis</h1>
+
+    <div class="block">
+        <div class="code-header">1. 라이브러리 설정 및 랜덤 유틸리티 함수</div>
+        <div class="code-view">
+<pre>
+import random, gevent, os
+from flask import Blueprint, request, jsonify, current_app
+import routes.shared as shared
+
+simulation_bp = Blueprint('simulation', __name__)
+
+def get_random_video(video_type):
+    assets_path = os.path.join(os.getcwd(), "assets")
+    files = [f for f in os.listdir(assets_path) if f.startswith(video_type) and f.endswith(".mp4")]
+    return random.choice(files) if files else f"{video_type}.mp4"
+
+def get_random_seoul_coord():
+    lat = round(random.uniform(37.4268, 37.7006), 6)
+    lng = round(random.uniform(126.7644, 127.1812), 6)
+    return lat, lng
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 현실적인 테스트 환경 조성</h4>
+            <p>매번 같은 영상을 보여주는 지루함을 없애기 위해 <b>가상 데이터 생성기</b>를 구현했습니다. <code>get_random_video</code>는 지정된 폴더 내의 영상 중 하나를 무작위로 선택하며, <code>get_random_seoul_coord</code>는 실제 서울 지역 위도/경도 범위 내의 <b>랜덤 좌표</b>를 생성하여 지도 상의 임의 지점에서 사건이 발생한 것처럼 연출합니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">2. 시뮬레이션 시작 API 및 실시간 전파</div>
+        <div class="code-view">
+<pre>
+@simulation_bp.route('/api/start_simulation', methods=['POST'])
+def start_simulation():
+    data = request.get_json()
+    video_type = data.get('type')
+    
+    if video_type in shared.ANOMALY_DATA:
+        lat, lng = get_random_seoul_coord()
+        
+        # global 대신 shared.변수 사용 (상태 동기화)
+        shared.sim_coords = {"lat": lat, "lng": lng}
+        
+        if video_type != "webcam":
+            shared.current_video_file[video_type] = get_random_video(video_type)
+        
+        shared.current_broadcast_type = video_type
+        shared.alert_sent_session[video_type] = False 
+        
+        # Flask Context 내에서 SocketIO 인스턴스 참조
+        socketio = current_app.extensions['socketio']
+        socketio.emit('force_video_start', {"type": video_type, "lat": lat, "lng": lng})
+        
+        return jsonify({"status": "success"}), 200
+    return jsonify({"status": "error"}), 400
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 실시간 관제 연동 로직</h4>
+            <p>시뮬레이션 버튼을 누르면 서버는 <b>공유 상태(`shared`)</b>를 즉시 업데이트합니다. 여기서 가장 핵심적인 부분은 <code>socketio.emit</code>입니다. HTTP 요청에 응답만 하는 것이 아니라, <b>관제소의 모든 클라이언트 웹 화면을 강제로 영상 재생 모드로 전환</b>시키는 트리거 역할을 수행합니다.</p>
+        </div>
+    </div>
+
+</body>
+</html>

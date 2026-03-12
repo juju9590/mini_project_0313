@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --accent: #ff4d4f; --bg: #020617; --card: #1e293b; --code: #0f172a; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: #e2e8f0; padding: 20px; }
+        .func-block { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 30px; border-left: 5px solid var(--accent); }
+        pre { background: var(--code); padding: 15px; border-radius: 8px; border: 1px solid #334155; color: #fb7185; overflow-x: auto; }
+        .line { margin: 8px 0; padding-left: 10px; border-left: 2px solid #64748b; }
+    </style>
+</head>
+<body>
+
+    <h1>📍 useMapMarkers.js 상세 코드 리뷰</h1>
+
+    <div class="func-block">
+        <h3>1. <code>markersRef</code> : 마커 상태 저장소</h3>
+        <pre>
+const markersRef = useRef({});
+        </pre>
+        <div class="line"><b>[라인 분석]</b> 리액트가 렌더링을 다시 해도 유지되는 마커 객체를 생성합니다.</div>
+        <div class="line"><b>[의도]</b> 사고 건별로 마커를 개별 관리(`id` 기준)하여 나중에 특정 사고만 삭제할 수 있게 합니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>2. <code>createMarker()</code> : 지도 오버레이 생성</h3>
+        <pre>
+window.resolveFromMap = (id, type, addr, origin) => resolveEmergency(...); // 전역 함수 연결
+const overlay = new window.kakao.maps.CustomOverlay({ ... }); // HTML 기반 마커 생성
+markersRef.current[alert.id] = overlay; // 객체에 마커 참조 저장
+        </pre>
+        <div class="line"><b>[라인 분석]</b> 카카오 맵의 <code>CustomOverlay</code>를 사용하여 HTML 기반의 화려한 팝업을 만듭니다.</div>
+        <div class="line"><b>[핵심]</b> 리액트 내부 함수와 지도상의 HTML 버튼을 연결하기 위해 <code>window.resolveFromMap</code>이라는 전역 함수를 사용했습니다. 이는 외부 스크립트와의 통신을 위한 영리한 트릭입니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>3. <code>removeMarker()</code> : 마커 정리</h3>
+        <pre>
+if (markersRef.current[alertId]) {
+  markersRef.current[alertId].setMap(null); // 지도에서 삭제
+  delete markersRef.current[alertId]; // 객체에서 메모리 해제
+}
+        </pre>
+        <div class="line"><b>[라인 분석]</b> <code>setMap(null)</code>을 호출해야 카카오 지도 위에서 시각적으로 마커가 사라집니다.</div>
+    </div>
+
+</body>
+</html>

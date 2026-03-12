@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --accent: #2563eb; --bg: #020617; --card: #0f172a; --code: #020617; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: #e2e8f0; padding: 20px; }
+        .func-block { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 30px; border: 1px solid #1e293b; }
+        pre { background: var(--code); padding: 15px; border-radius: 8px; border: 1px solid #334155; color: #fb7185; overflow-x: auto; }
+        .line { margin: 8px 0; padding-left: 10px; border-left: 2px solid #64748b; }
+    </style>
+</head>
+<body>
+
+    <h1>📊 StatsPanel.jsx 상세 코드 리뷰</h1>
+
+    <div class="func-block">
+        <h3>1. <code>fetchStats()</code> : 실시간 통계 업데이트</h3>
+        <pre>
+const response = await axios.get(`.../api/stats/summary?mode=${dataMode}`);
+// 5초마다 데이터 갱신 (Polling)
+const interval = setInterval(fetchStats, 5000);
+        </pre>
+        <div class="line"><b>[라인 분석]</b> <code>dataMode</code>(실제/시뮬/전체)를 쿼리 파라미터로 넘겨 서버에서 필터링된 통계값을 가져옵니다.</div>
+        <div class="line"><b>[의도]</b> 대시보드를 보는 동안에도 통계 수치가 실시간으로 변하도록 5초 단위의 Polling 방식을 채택했습니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>2. 이벤트 분포 시각화 (진행 바)</h3>
+        <pre>
+&lt;div style={{ ...barProgressStyle, width: `${calculatePercent(count)}%` }} /&gt;
+        </pre>
+        <div class="line"><b>[라인 분석]</b> CSS-in-JS를 활용하여 <code>width</code> 값을 백분율로 계산해 바(Bar)의 길이를 동적으로 조절합니다.</div>
+        <div class="line"><b>[핵심]</b> 관리자가 현재 어떤 유형의 사고가 가장 많은지 시각적으로 즉시 파악하게 해주는 핵심 UI 요소입니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>3. <code>historyLogs</code> : 상세 데이터 감사</h3>
+        <pre>
+const response = await axios.get(`.../history?date=${selectedDate}&mode=${dataMode}`);
+        </pre>
+        <div class="line"><b>[라인 분석]</b> 특정 날짜(<code>selectedDate</code>)와 모드에 맞는 상세 로그 리스트를 가져옵니다.</div>
+        <div class="line"><b>[의도]</b> 과거 사고 이력을 추적하여 나중에 정탐/오탐의 근거를 확인하는 '감사 기록(Audit Trail)' 기능을 수행합니다.</div>
+    </div>
+
+</body>
+</html>

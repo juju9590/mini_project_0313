@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --bg: #020617; --card: #1e293b; --accent: #f59e0b; --text: #f1f5f9; --code-bg: #0f172a; --highlight: #38bdf8; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 40px; line-height: 1.6; }
+        .main-title { font-size: 2rem; color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 50px; }
+        .block { margin-bottom: 60px; animation: fadeIn 0.5s ease-in; }
+        .code-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--highlight); display: flex; align-items: center; }
+        .code-header::before { content: '◈'; margin-right: 10px; color: var(--accent); }
+        .code-view { background: var(--code-bg); padding: 25px; border-radius: 12px; font-family: 'Fira Code', monospace; font-size: 0.9rem; border: 1px solid #334155; overflow-x: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        .explain-box { margin-top: 20px; padding: 20px; background: var(--card); border-radius: 0 0 12px 12px; border-top: 2px solid #334155; }
+        .explain-box h4 { margin: 0 0 10px 0; color: var(--accent); font-size: 1rem; }
+        .explain-box p { margin: 0; font-size: 0.95rem; color: #cbd5e1; }
+        pre { margin: 0; white-space: pre-wrap; word-break: break-all; color: #d4d4d4; }
+        b { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h1 class="main-title">Shared Global State (shared.py) Analysis</h1>
+
+    <div class="block">
+        <div class="code-header">1. 시스템 공유 상태 및 세션 플래그</div>
+        <div class="code-view">
+<pre>
+import os
+
+# 공유 상태 변수
+current_broadcast_type = None
+alert_sent_session = {"fire": False, "reverse": False, "webcam": False}
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 실시간 이벤트 제어의 핵심</h4>
+            <p><code>current_broadcast_type</code>은 현재 어떤 분석 화면이 송출되고 있는지 추적합니다. 특히 <b>alert_sent_session</b> 딕셔너리는 매우 중요합니다. 한 번 발생한 화재에 대해 알람이 중복으로 울리지 않도록 <b>상태를 잠금(Lock)</b>하는 역할을 수행하여 관제자의 피로도를 줄여줍니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">2. 실시간 좌표, 영상 정보 및 물리 경로</div>
+        <div class="code-view">
+<pre>
+sim_coords = {"lat": 37.5665, "lng": 126.9780}
+current_video_file = {"fire": None, "reverse": None}
+latest_frames = {}
+
+# 경로 설정
+CAPTURE_DIR = os.path.join(os.getcwd(), "static", "captures")
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 동적 리소스 관리</h4>
+            <p>시뮬레이션의 기준 좌표(서울시청 인근)와 현재 분석 중인 파일 정보를 저장합니다. <b>latest_frames</b>는 AI 분석기가 처리한 가장 최신 프레임을 메모리에 임시 보관하여, 웹 클라이언트가 요청할 때 즉각적으로 응답할 수 있는 <b>버퍼 역할</b>을 합니다. <code>CAPTURE_DIR</code>은 이상 징후 포착 시 이미지를 저장할 절대 경로를 정의합니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">3. 감지 유형 메타데이터 (Anomaly Data)</div>
+        <div class="code-view">
+<pre>
+ANOMALY_DATA = {
+    "fire": {"type": "화재 발생"},
+    "reverse": {"type": "역주행"},
+    "webcam": {"type": "실시간 현장"}
+}
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 시스템 통합 언어 정의</h4>
+            <p>내부 시스템 코드(`fire`, `reverse`)와 사용자에게 보여줄 한국어 명칭을 매핑해둔 <b>사전 데이터</b>입니다. 프로젝트 전체에서 일관된 용어를 사용할 수 있게 해주며, 새로운 분석 유형이 추가될 때 이곳에 정의만 추가하면 되므로 <b>코드의 유지보수성</b>이 극대화됩니다.</p>
+        </div>
+    </div>
+
+</body>
+</html>

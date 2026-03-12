@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --accent: #10b981; --text: #f1f5f9; --bg: #020617; --card: #0f172a; --code: #1e1e1e; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 30px; line-height: 1.8; }
+        .section { background: var(--card); border-radius: 15px; padding: 25px; margin-bottom: 30px; border: 1px solid #1e3a34; }
+        h2 { color: var(--accent); border-bottom: 2px solid var(--accent); display: inline-block; margin-bottom: 20px; }
+        h3 { color: var(--accent); margin-top: 0; }
+        .code-tag { background: #000; padding: 2px 6px; border-radius: 4px; color: #4ade80; font-family: monospace; }
+        .highlight { border-left: 4px solid var(--accent); padding-left: 15px; }
+    </style>
+</head>
+<body>
+
+    <h1>📝 Register.jsx 상세 코드 가이드</h1>
+
+    <div class="section">
+        <h3>1. 입력값을 객체로 한 번에 관리 (Spread Operator)</h3>
+        <div class="highlight">
+            <span class="code-tag">const [formData, setFormData] = useState({ name: '', id: '', ... })</span><br>
+            `Login`에서는 아이디와 비번을 각각 따로 만들었지만, 여기서는 여러 정보를 하나의 <b>'객체(Object)'</b>에 담았습니다.
+            <br><br>
+            <span class="code-tag">setFormData({ ...formData, [e.target.name]: e.target.value })</span><br>
+            여기서 <code>...formData</code>는 <b>"기존의 정보를 그대로 유지하되"</b>라는 뜻입니다. 사용자가 입력한 필드 하나만 쏙 바꿔치기해서 전체 데이터를 최신 상태로 유지하는 기법입니다. (리액트 입문자들이 꼭 배워야 할 패턴!)
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>2. 서버와의 데이터 주고받기</h3>
+        <div class="highlight">
+            <span class="code-tag">axios.post(..., formData)</span><br>
+            로그인 때는 데이터를 쪼개서 보냈지만, 여기서는 <b>`formData` 전체를 통째로</b> 던집니다. 
+            이렇게 하면 `name`, `id`, `password` 등 모든 회원 정보가 하나의 바구니에 담겨 서버(Flask)로 안전하게 전달됩니다.
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>3. 깔끔한 사용자 흐름 (UX)</h3>
+        <div class="highlight">
+            회원가입이 성공하면 곧바로 <b>`Maps('/login')`</b>을 실행합니다. 
+            사용자는 가입 성공 팝업을 보고 나서 바로 로그인 페이지로 이동하게 되어 흐름이 아주 매끄럽습니다.
+        </div>
+    </div>
+
+</body>
+</html>

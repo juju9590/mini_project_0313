@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <style>
+        :root { --bg: #020617; --card: #1e293b; --accent: #f43f5e; --text: #f1f5f9; --code-bg: #0f172a; --highlight: #f59e0b; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 40px; line-height: 1.6; }
+        .main-title { font-size: 2rem; color: var(--highlight); border-bottom: 3px solid var(--highlight); padding-bottom: 15px; margin-bottom: 50px; }
+        .block { margin-bottom: 60px; }
+        .code-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--accent); display: flex; align-items: center; }
+        .code-view { background: var(--code-bg); padding: 25px; border-radius: 12px; font-family: 'Fira Code', monospace; font-size: 0.9rem; border: 1px solid #334155; overflow-x: auto; }
+        .explain-box { margin-top: 20px; padding: 20px; background: var(--card); border-radius: 0 0 12px 12px; border-top: 2px solid #334155; }
+        .explain-box h4 { margin: 0 0 10px 0; color: var(--highlight); }
+    </style>
+</head>
+<body>
+
+    <h1 class="main-title">ITS CCTV Integration (its.py) Analysis</h1>
+
+    <div class="block">
+        <div class="code-header">1. 외부 API 호출 및 CCTV 데이터 관리</div>
+        <div class="code-view">
+<pre>
+@its_bp.route('/get_cctv_url', methods=['GET'])
+def get_cctv_url():
+    global cached_cctv_list
+    # 캐시 확인
+    if cached_cctv_list: return jsonify({"success": True, "cctvData": cached_cctv_list})
+
+    # ITS API 호출 설정
+    params = {'apiKey': ITS_API_KEY, 'type': 'ex', 'cctvType': '1', 'minX': '126.8', 'maxX': '127.89', 'minY': '36.8', 'maxY': '37.0', 'getType': 'json'}
+    try:
+        response = requests.get("https://openapi.its.go.kr:9443/cctvInfo", params=params, timeout=5)
+        if response.status_code == 200:
+            cctv_list = response.json().get("response", {}).get("data", [])
+            # 랜덤 4개 추출 및 데이터 가공
+            random_cctvs = random.sample(cctv_list, min(len(cctv_list), 4))
+            cached_cctv_list = [{"url": item['cctvurl'], "name": item['cctvname'], "lat": float(item['coordy']), "lng": float(item['coordx'])} for item in random_cctvs]
+            return jsonify({"success": True, "cctvData": cached_cctv_list})
+    except Exception as e:
+        # 실패 시 테스트용 스트림 반환
+        return jsonify({"success": True, "cctvData": [{"url": "...", "name": "테스트 채널", ...}]})
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 외부 오픈API 연동 및 캐싱</h4>
+            <p>국가교통정보센터(ITS) API를 통해 실시간 CCTV 스트리밍 주소를 받아옵니다. 매번 API를 호출하면 속도가 저하되므로, 서버 구동 중 <b>`cached_cctv_list`에 저장하여 재사용</b>하는 효율적인 구조입니다. 만약 API 연결이 실패할 경우를 대비한 Fallback(테스트 채널) 로직도 포함되어 있습니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">2. 역주행 탐지 스트리밍 (/video_feed)</div>
+        <div class="code-view">
+<pre>
+@its_bp.route('/video_feed')
+def video_feed():
+    # 파라미터 추출
+    url = request.args.get('url'); name = request.args.get('name', 'default'); lat = float(request.args.get('lat', 37.5)); lng = float(request.args.get('lng', 127.0)); conf_val = float(request.args.get('conf', 0.66))
+
+    # 매니저를 통한 Detector 인스턴스 생성/관리
+    detector = detector_manager.get_or_create(
+        f"{name}_reverse", ReverseDetector, 
+        url=url, lat=lat, lng=lng,
+        socketio=current_app.extensions['socketio'], 
+        db=db_inst, ...
+    )
+    return Response(detector.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 역주행 분석 엔진 연결</h4>
+            <p>특정 CCTV URL에 대해 <code>ReverseDetector</code>를 구동합니다. <code>detector_manager</code>를 사용하여 동일한 CCTV에 대한 탐지기가 중복 생성되지 않도록 관리하며, <b>지능형 분석기(`Detector`)가 영상을 읽어 역주행 여부를 판별</b>하고 그 결과를 실시간 스트리밍으로 브라우저에 전송합니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">3. 화재 탐지 스트리밍 (/fire_feed)</div>
+        <div class="code-view">
+<pre>
+@its_bp.route('/fire_feed')
+def fire_feed():
+    # 파라미터 추출 및 인스턴스 생성
+    url = request.args.get('url'); name = request.args.get('name', 'fire_cctv')
+    
+    # 매니저를 통한 화재 감지기 실행
+    detector = detector_manager.get_or_create(
+        f"{name}_fire", FireDetector,
+        url=url, lat=lat, lng=lng, 
+        socketio=current_app.extensions['socketio'], 
+        db=db_inst, ...
+    )
+    return Response(detector.generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 화재 분석 엔진 연결</h4>
+            <p>화재 탐지를 위해 <code>FireDetector</code> 인스턴스를 생성합니다.  각 피드는 독립적인 매니저 관리를 통해 <b>멀티 채널 분석</b>이 가능하며, 탐지된 화재 이벤트는 즉시 DB에 기록되고 관제소로 알림이 전달되는 파이프라인을 가집니다.</p>
+        </div>
+    </div>
+
+</body>
+</html>

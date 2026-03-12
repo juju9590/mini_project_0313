@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>교통 AI 관제 시스템 - 프론트엔드 코드 리뷰</title>
+    <style>
+        :root {
+            --bg: #020617; --side: #0f172a; --card: #1e293b;
+            --accent: #38bdf8; --text: #f1f5f9; --sub: #94a3b8; --code: #1e1e1e;
+        }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+        .layout { display: flex; height: 100vh; }
+
+        /* 사이드바 */
+        .sidebar { width: 320px; background: var(--side); border-right: 1px solid #1e293b; padding: 25px 15px; overflow-y: auto; }
+        .sidebar h2 { font-size: 1rem; color: var(--accent); margin-bottom: 20px; padding-left: 10px; }
+        .folder { margin-left: 15px; margin-top: 10px; color: var(--sub); font-size: 0.9rem; font-weight: 600; }
+        .file { margin-left: 30px; margin-top: 6px; cursor: pointer; padding: 7px 12px; border-radius: 6px; font-size: 0.85rem; color: #cbd5e1; transition: 0.2s; }
+        .file:hover { background: #1e293b; color: white; }
+        .file.active { background: #334155; color: var(--accent); font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+
+        /* 메인 컨텐츠 */
+        .main { flex: 1; padding: 40px; overflow-y: auto; position: relative; }
+        .content-section { display: none; }
+        .content-section.active { display: block; animation: slideUp 0.4s ease-out; }
+        
+        .header { border-bottom: 1px solid #334155; padding-bottom: 20px; margin-bottom: 30px; }
+        .badge { background: var(--accent); color: var(--bg); padding: 4px 12px; border-radius: 50px; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
+        
+        .review-card { background: var(--card); border-radius: 12px; padding: 25px; margin-bottom: 30px; border-top: 4px solid var(--accent); }
+        pre { background: var(--code); padding: 20px; border-radius: 10px; overflow-x: auto; color: #d4d4d4; font-family: 'Fira Code', monospace; line-height: 1.6; border: 1px solid #334155; }
+
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .welcome { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--sub); }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+    <div class="sidebar">
+        <h2>📂 SRC DIRECTORY</h2>
+        
+        <div class="file" onclick="show('app_desc.html', this)">📄 App.jsx</div>
+        <div class="file" onclick="show('main-jsx', this)">📄 main.jsx</div>
+
+        <div class="folder">📁 hooks (Logic)</div>
+        <div class="file" onclick="show('hook_anomaly.html', this)">📄 useAnomalyDetection.js</div>
+        <div class="file" onclick="show('hook_map.html', this)">📄 useMapMarkers.js</div>
+
+        <div class="folder">📁 pages</div>
+        
+        <div class="folder" style="margin-left:30px">📁 member</div>
+        <div class="file" style="margin-left:45px" onclick="show('login_desc.html', this)">📄 Login.jsx</div>
+        <div class="file" style="margin-left:45px" onclick="show('register_desc.html', this)">📄 Register.jsx</div>
+
+        <div class="folder" style="margin-left:30px">📁 traffic</div>
+        <div class="file" style="margin-left:45px" onclick="show('dash_desc.html', this)">📄 Dashboard.jsx</div>
+        <div class="file" style="margin-left:45px" onclick="show('control_desc.html', this)">📄 ControlPanel.jsx</div>
+        <div class="file" style="margin-left:45px" onclick="show('video_desc.html', this)">📄 VideoPanel.jsx</div>
+        <div class="file" style="margin-left:45px" onclick="show('map_desc.html', this)">📄 MapPanel.jsx</div>
+        <div class="file" style="margin-left:45px" onclick="show('stats_desc.html', this)">📄 StatsPanel.jsx</div>
+        <div class="file" style="margin-left:45px" onclick="show('side_desc.html', this)">📄 Sidebar.jsx</div>
+    </div>
+
+    <div class="main" id="displayArea">
+        <div id="welcome" class="welcome">
+            <h1 style="color:var(--accent)">Frontend Code Review</h1>
+            <p>분석할 파일을 왼쪽에서 선택하고 코드를 붙여넣어 주세요.</p>
+        </div>
+
+        <div id="app-jsx" class="content-section">
+            <div class="header"><span class="badge">Root</span><h1>App.jsx</h1></div>
+            <div id="app-jsx-content">코드를 기다리고 있습니다...</div>
+        </div>
+
+        <div id="hook-anomaly" class="content-section">
+            <div class="header"><span class="badge">Hook</span><h1>useAnomalyDetection.js</h1></div>
+            <div id="hook-anomaly-content">탐지 로직 훅 분석 대기 중...</div>
+        </div>
+
+        <div id="pg-video" class="content-section">
+            <div class="header"><span class="badge">Component</span><h1>VideoPanel.jsx</h1></div>
+            <div id="pg-video-content">CCTV 스트리밍 컴포넌트 분석 대기 중...</div>
+        </div>
+        
+        </div>
+</div>
+
+<script>
+    function show(fileName, el) {
+        // 1. 초기 환영 메시지 숨기기 (존재할 때만)
+        const welcome = document.getElementById('welcome');
+        if (welcome) welcome.style.display = 'none';
+        
+        // 2. 모든 content-section을 일단 숨기기
+        document.querySelectorAll('.content-section').forEach(section => {
+            section.style.display = 'none';
+        });
+
+        // 3. iframe 전용 컨테이너를 하나 만들어서 거기에만 로드하기
+        let displayArea = document.getElementById('displayArea');
+        
+        // 이전에 만든 iframe이 없다면 새로 만들고, 있다면 소스만 변경합니다.
+        displayArea.innerHTML = `
+            <div class="header">
+                <span class="badge">Code Review</span>
+                <h1>${el.innerText} 상세 분석</h1>
+            </div>
+            <iframe src="${fileName}" style="width:100%; height:calc(100vh - 150px); border:none; border-radius:10px; background: white;"></iframe>
+        `;
+        
+        // 4. 사이드바 하이라이트 처리
+        document.querySelectorAll('.file').forEach(f => f.classList.remove('active'));
+        el.classList.add('active');
+    }
+</script>
+</body>
+</html>

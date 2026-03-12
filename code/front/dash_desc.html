@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard.jsx 상세 분석</title>
+    <style>
+        :root { 
+            --accent: #38bdf8; 
+            --bg: #020617; 
+            --card: #0f172a; 
+            --api-color: #f59e0b; 
+            --text: #e2e8f0;
+        }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 20px; line-height: 1.6; }
+        .section { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 20px; border: 1px solid #1e293b; }
+        h3 { color: var(--accent); margin-top: 0; }
+        .api-h3 { color: var(--api-color); }
+        code { background: #000; color: #4ade80; padding: 2px 4px; border-radius: 4px; font-family: monospace; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>📊 Dashboard.jsx 핵심 분석</h1>
+
+    <div class="section">
+        <h3>1. 실시간 데이터 흐름 (Props의 전달)</h3>
+        <p><code>Dashboard</code>는 <code>socket</code>, <code>user</code> 등의 정보를 <b>부모(App.jsx)로부터 직접 전달받습니다.</b></p>
+        <ul>
+            <li><code>socket</code>: 실시간 사고 알림을 받는 무전기.</li>
+            <li><code>user</code>: 현재 누가 관제 중인지 확인하는 명찰.</li>
+        </ul>
+        <p>데이터가 부모에서 자식으로만 흐르는 <b>'단방향 데이터 흐름'</b>의 전형적인 예시입니다.</p>
+    </div>
+
+    <div class="section">
+        <h3>2. 복잡한 화면 제어 (useEffect의 마법)</h3>
+        <p>대시보드는 화면이 매우 복잡해서 <code>useEffect</code>를 통해 <b>'자동화된 환경 제어'</b>를 수행합니다.</p>
+        <ul>
+            <li><b>사고 발생 시:</b> <code>isEmergency</code>가 true가 되면, 지도 패널을 강제로 펼치고 화면에 붉은색 경고(배경 애니메이션)를 띄웁니다.</li>
+            <li><b>반응형 처리:</b> 창 크기를 감시(`resize`)하여 모바일(좁은 화면)인지 데스크탑(넓은 화면)인지 실시간으로 판단합니다.</li>
+            <li><b>지도 보정:</b> <code>mapRef.current.relayout()</code>을 사용하여 탭 전환이나 창 크기 변화 시 지도가 깨지지 않게 보정합니다.</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h3>3. 사용자 정의 훅 (Custom Hook: useAnomalyDetection)</h3>
+        <p><code>const { isEmergency, ... } = useAnomalyDetection(...)</code></p>
+        <p>코드의 가독성을 위해 "이상 탐지"와 관련된 복잡한 로직은 별도 파일(훅)로 빼두었습니다. 대시보드 파일에는 <b>"결과를 어떻게 화면에 보여줄까?"</b>에만 집중할 수 있게 하는 리액트의 고수급 설계 방식입니다.</p>
+    </div>
+
+    <div class="section">
+        <h3>4. 조건부 렌더링 (보일락 말락)</h3>
+        <p><code>activeTab === "stats" ? flex : none</code> 같은 코드가 많죠? 이는 탭을 클릭할 때마다 <b>"누구는 보여주고 누구는 숨길지"</b>를 리액트가 판단하게 하는 로직입니다.</p>
+        <p>특히 지도(`MapPanel`)를 <code>display: none</code> 대신 <code>maxHeight</code>와 <code>opacity</code>를 조절해 스르륵 나타나게 한 것은 <b>'사용자 경험(UX)'</b>을 위해 아주 잘 짠 부분입니다.</p>
+    </div>
+
+    <div class="section">
+        <h3 class="api-h3">5. 백엔드 통신 및 데이터 생명주기</h3>
+        <p>Dashboard는 화면만 그리는 게 아니라 서버와 끊임없이 대화합니다.</p>
+        <ul>
+            <li><b>초기 데이터 로딩:</b> <code>useEffect(() => { fetchCctvUrl() }, [])</code>를 통해 앱 실행 즉시 CCTV 정보를 확보합니다.</li>
+            <li><b>실시간 영상 스트리밍:</b> <code>handleTabChange</code> 호출 시 <code>Date.now()</code>를 쿼리 파라미터로 붙여 캐싱을 방지하고 항상 최신 영상 데이터를 서버에 요청합니다.</li>
+            <li><b>사고 조치 보고:</b> <code>resolveAllAlertsAction</code>을 통해 사용자가 조치한 알림 정보를 서버 DB로 전송하여 시스템 상태를 동기화합니다.</li>
+        </ul>
+        <p>이러한 통신 과정은 서버가 보낸 <code>{ success: true }</code> 응답을 확인한 후 화면을 갱신하는 <b>'비동기 순차 처리'</b> 구조를 따릅니다.</p>
+    </div>
+
+</body>
+</html>

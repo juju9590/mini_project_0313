@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --bg: #020617; --card: #1e293b; --accent: #10b981; --text: #f1f5f9; --code-bg: #0f172a; --highlight: #f59e0b; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 40px; line-height: 1.6; }
+        .main-title { font-size: 2rem; color: var(--accent); border-bottom: 3px solid var(--accent); padding-bottom: 15px; margin-bottom: 50px; }
+        .block { margin-bottom: 60px; animation: fadeIn 0.5s ease-in; }
+        .code-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: #34d399; display: flex; align-items: center; }
+        .code-header::before { content: '◈'; margin-right: 10px; color: var(--highlight); }
+        .code-view { background: var(--code-bg); padding: 25px; border-radius: 12px; font-family: 'Fira Code', monospace; font-size: 0.9rem; border: 1px solid #334155; overflow-x: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        .explain-box { margin-top: 20px; padding: 20px; background: var(--card); border-radius: 0 0 12px 12px; border-top: 2px solid #334155; }
+        .explain-box h4 { margin: 0 0 10px 0; color: var(--highlight); font-size: 1rem; }
+        .explain-box p { margin: 0; font-size: 0.95rem; color: #cbd5e1; }
+        pre { margin: 0; white-space: pre-wrap; word-break: break-all; color: #d4d4d4; }
+        b { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h1 class="main-title">Authentication Route Analysis (member.py)</h1>
+
+    <div class="block">
+        <div class="code-header">1. 모듈 초기 설정 및 의존성 임포트</div>
+        <div class="code-view">
+<pre>
+from flask import Blueprint, request, jsonify
+from models import db, User
+
+member_bp = Blueprint('member', __name__)
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 라우트 분리 및 모듈화</h4>
+            <p>프로젝트의 확장성을 위해 <b>Blueprint</b>를 사용하여 회원 관리 로직을 별도의 모듈로 분리했습니다. 이를 통해 <code>app.py</code>의 비대화를 막고 유지보수 효율을 높였습니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">2. 회원가입 API (Register)</div>
+        <div class="code-view">
+<pre>
+@member_bp.route('/register', methods=['POST'])
+def register():
+    data = request.json
+    name = data.get('name')
+    user_id = data.get('id')
+    password = data.get('password')
+    phone = data.get('phone')
+    email = data.get('email')
+
+    try:
+        # 아이디 중복 확인 (ORM 방식)
+        existing_user = User.query.filter_by(user_id=user_id).first()
+        if existing_user:
+            return jsonify({"success": False, "message": "이미 존재하는 아이디입니다."}), 400
+
+        # 사용자 등록
+        new_user = User(
+            name=name,
+            user_id=user_id,
+            password=password, # 내부적으로 해싱됨
+            phone=phone,
+            email=email
+        )
+        db.session.add(new_user)
+        db.session.commit()
+        return jsonify({"success": True, "message": "회원가입 성공!"})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"success": False, "message": str(e)}), 500
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 안전한 데이터 저장 프로세스</h4>
+            <p>중복 아이디 체크를 통해 데이터 무결성을 검사한 뒤 <b>트랜잭션(db.session)</b>을 생성합니다. 특히 <code>except</code> 구문에서 <b>db.session.rollback()</b>을 호출하여 예상치 못한 에러 발생 시 데이터베이스를 이전 상태로 되돌리는 예외 처리를 철저히 구현했습니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">3. 로그인 API (Login)</div>
+        <div class="code-view">
+<pre>
+@member_bp.route('/login', methods=['POST'])
+def login():
+    data = request.json
+    user_id = data.get('id')
+    password = data.get('password')
+
+    try:
+        # 로그인 확인 (ORM 방식)
+        user = User.query.filter_by(user_id=user_id).first()
+
+        if user and user.verify_password(password):
+            return jsonify({"success": True, "user": {"name": user.name, "user_id": user.user_id}})
+        else:
+            return jsonify({"success": False, "message": "아이디 또는 비밀번호가 틀렸습니다."}), 401
+    except Exception as e:
+        return jsonify({"success": False, "message": str(e)}), 500
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 객체 지향적 인증 방식</h4>
+            <p>단순히 DB의 비밀번호를 비교하는 것이 아니라, <code>models.py</code>에서 정의한 <b>user.verify_password</b> 메서드를 활용합니다. 이는 비즈니스 로직과 모델 데이터를 분리하는 <b>객체 지향적 설계</b>를 보여주는 좋은 예시입니다.</p>
+        </div>
+    </div>
+
+</body>
+</html>

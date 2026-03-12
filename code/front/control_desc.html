@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --accent: #38bdf8; --bg: #020617; --card: #111827; --code: #0f172a; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: #e2e8f0; padding: 20px; }
+        .func-block { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 30px; border: 1px solid #1e293b; }
+        pre { background: var(--code); padding: 15px; border-radius: 8px; border: 1px solid #334155; color: #fb7185; overflow-x: auto; }
+        .line { margin: 8px 0; padding-left: 10px; border-left: 2px solid #64748b; }
+    </style>
+</head>
+<body>
+
+    <h1>⚙️ ControlPanel.jsx 상세 코드 리뷰</h1>
+
+    <div class="func-block">
+        <h3>1. 시뮬레이션 제어부 (상단 버튼)</h3>
+        <pre>
+&lt;button onClick={() => startSim("fire")} ... &gt;🔥 화재 상황 공유&lt;/button&gt;
+&lt;button onClick={() => startSim("reverse")} ... &gt;🚗 역주행 상황 공유&lt;/button&gt;
+        </pre>
+        <div class="line"><b>[라인 분석]</b> <code>startSim</code> 함수를 호출하여 서버에 시뮬레이션 트리거를 전달합니다.</div>
+        <div class="line"><b>[의도]</b> 실제 사고가 발생하지 않아도 시스템이 잘 작동하는지 테스트하거나, 관제사 교육용 상황을 강제로 발생시킵니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>2. 실시간 시스템 로그 (하단 콘솔)</h3>
+        <pre>
+&lt;div style={{ overflowY: 'auto', ... }}&gt;
+  {logs.map((log, i) => (
+    &lt;div key={i} style={{ color: log.includes('🚨') ? '#f87171' : '#4ade80' }}&gt;{log}&lt;/div&gt;
+  ))}
+&lt;/div&gt;
+        </pre>
+        <div class="line"><b>[라인 분석]</b> <code>logs</code> 배열을 매핑하여 시스템의 모든 이벤트를 역순으로 보여줍니다.</div>
+        <div class="line"><b>[핵심]</b> <code>log.includes('🚨')</code> 조건을 사용해 긴급 상황(🚨)과 정상 동작(✅ 등)을 색상으로 구분합니다. 직관적인 시각적 피드백을 제공하죠.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>3. UI/UX: <code>flex: 1</code>의 마법</h3>
+        <pre>
+&lt;div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}&gt;
+        </pre>
+        <div class="line"><b>[분석]</b> 로그 영역에 <code>flex: 1</code>과 <code>minHeight: 0</code>을 설정했습니다.</div>
+        <div class="line"><b>[의도]</b> 화면 크기가 변해도 로그 영역이 부모를 넘치지 않고, 내부에서만 스크롤이 발생하도록 설계된 '전문가형 레이아웃'입니다.</div>
+    </div>
+
+</body>
+</html>

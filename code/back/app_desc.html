@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --bg: #020617; --card: #1e293b; --accent: #38bdf8; --text: #f1f5f9; --code-bg: #0f172a; --highlight: #f59e0b; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 40px; line-height: 1.6; }
+        .main-title { font-size: 2rem; color: var(--highlight); border-bottom: 3px solid var(--highlight); padding-bottom: 15px; margin-bottom: 50px; }
+        .block { margin-bottom: 60px; animation: fadeIn 0.5s ease-in; }
+        .code-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--accent); display: flex; align-items: center; }
+        .code-header::before { content: '◈'; margin-right: 10px; color: var(--highlight); }
+        .code-view { background: var(--code-bg); padding: 25px; border-radius: 12px; font-family: 'Fira Code', monospace; font-size: 0.9rem; border: 1px solid #334155; overflow-x: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        .explain-box { margin-top: 20px; padding: 20px; background: var(--card); border-radius: 0 0 12px 12px; border-top: 2px solid #334155; }
+        .explain-box h4 { margin: 0 0 10px 0; color: var(--highlight); font-size: 1rem; }
+        .explain-box p { margin: 0; font-size: 0.95rem; color: #cbd5e1; }
+        pre { margin: 0; white-space: pre-wrap; word-break: break-all; color: #d4d4d4; }
+        b { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h1 class="main-title">Backend Entry Point (app.py) Analysis</h1>
+
+    <div class="block">
+        <div class="code-header">1. 비동기 환경 설정 (Monkey Patching)</div>
+        <div class="code-view">
+<pre>
+from gevent import monkey
+monkey.patch_all()  # 영상을 계속 분석하면서 동시에 웹 요청도 받아야함 (비동기로 한 번에 여러 일을 막힘없이 처리)
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 동시성 처리를 위한 기초 공사</h4>
+            <p>파이썬의 표준 라이브러리를 비동기 방식으로 동작하게 만드는 <b>Monkey Patch</b>입니다. AI 영상 분석과 웹 소켓 통신이 동시에 일어나는 관제 서버의 특성상, 어느 한쪽이 멈추지 않도록 만드는 <b>가장 중요한 첫 줄</b>입니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">2~5. 서버 라이브러리 및 DB/SocketIO 초기화</div>
+        <div class="code-view">
+<pre>
+import os
+import warnings
+import atexit 
+from dotenv import load_dotenv
+from flask import Flask, request, Response, jsonify
+from flask_socketio import SocketIO, emit
+from flask_cors import CORS
+from flask_migrate import Migrate 
+
+from detectors.manager import detector_manager 
+from models import db 
+
+load_dotenv()
+warnings.filterwarnings("ignore", category=FutureWarning)
+
+app = Flask(__name__)
+CORS(app)
+
+DB_USER = os.getenv("DB_USER")
+DB_PW = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
+DB_NAME = os.getenv("DB_NAME")
+app.config['SQLALCHEMY_DATABASE_URI'] = f'mysql+pymysql://{DB_USER}:{DB_PW}@{DB_HOST}:{DB_PORT}/{DB_NAME}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db.init_app(app)
+migrate = Migrate(app, db)
+
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
+app.extensions['socketio'] = socketio
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 인프라 및 통신 계층 설정</h4>
+            <p>환경 변수를 로드하고 <b>DB(SQLAlchemy)</b>와 <b>실시간 통신(SocketIO)</b> 엔진을 초기화합니다. 특히 SocketIO는 <code>async_mode='gevent'</code> 설정을 통해 앞서 설정한 비동기 패치와 호흡을 맞춥니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">6. 모듈형 설계 (Blueprints) 및 종료 훅</div>
+        <div class="code-view">
+<pre>
+from routes.member import member_bp
+from routes.result import result_bp
+from routes.its import its_bp
+from routes.streaming import streaming_bp
+from routes.simulation import simulation_bp
+
+app.register_blueprint(member_bp, url_prefix='/api/member')
+app.register_blueprint(result_bp)
+app.register_blueprint(its_bp, url_prefix='/api/its')
+app.register_blueprint(streaming_bp)
+app.register_blueprint(simulation_bp)
+
+# 서버 종료 시 실행될 함수 등록 (분석 스레드 안전 종료)
+def shutdown_detectors():
+    print("🛑 [System] 서버 종료 감지: 모든 분석 스레드를 정지합니다...")
+    detector_manager.stop_all()
+
+atexit.register(shutdown_detectors) 
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 유지보수성과 자원 관리</h4>
+            <p>기능별로 <b>Blueprint</b>를 나누어 등록함으로써 대규모 프로젝트에서도 코드가 꼬이지 않도록 관리합니다. 또한 <code>atexit</code>을 통해 서버 종료 시 실행 중인 AI 분석기들을 <b>안전하게 정지</b>시켜 '좀비 프로세스' 발생을 방지합니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">7~8. 실시간 이벤트 및 메인 실행부</div>
+        <div class="code-view">
+<pre>
+# 실시간 조치 동기화
+@socketio.on('resolve_emergency')
+def handle_resolve(data):
+    print(f"📡 조치 신호 전파: {data.get('alertId')}")
+    emit('emergency_resolved', data, broadcast=True)
+
+@app.route('/')
+def index():
+    return "TADS Backend Server is Running"
+
+    
+if __name__ == '__main__':
+    save_path = os.path.join(app.root_path, "static", "captures")
+    if not os.path.exists(save_path):
+        os.makedirs(save_path)
+    
+    port = int(os.getenv("PORT", 5000))
+    socketio.run(app, host='0.0.0.0', port=port, debug=True)
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 서버 가동 및 환경 준비</h4>
+            <p>서버가 시작되기 전, 분석 결과 이미지를 저장할 <b>물리적 폴더를 스스로 점검</b>하고 생성합니다. <code>socketio.run</code>을 통해 일반적인 HTTP 요청과 실시간 이벤트를 모두 처리할 수 있는 상태로 서버를 기동합니다.</p>
+        </div>
+    </div>
+
+</body>
+</html>

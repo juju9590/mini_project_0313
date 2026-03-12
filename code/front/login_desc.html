@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --accent: #6366f1; --text: #f1f5f9; --bg: #020617; --card: #0f172a; --code: #1e1e1e; --blue: #3b82f6; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 30px; line-height: 1.8; }
+        .section { background: var(--card); border-radius: 15px; padding: 25px; margin-bottom: 30px; border: 1px solid #1e293b; }
+        h2 { color: var(--accent); border-bottom: 2px solid var(--accent); display: inline-block; margin-bottom: 20px; }
+        h3 { color: var(--blue); margin-top: 0; }
+        .concept-box { background: #1e293b; padding: 15px; border-radius: 10px; margin: 10px 0; border-left: 5px solid var(--accent); }
+        .code-tag { background: #000; padding: 2px 6px; border-radius: 4px; color: #4ade80; font-family: monospace; }
+        ul { padding-left: 20px; }
+        li { margin-bottom: 10px; }
+        b { color: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <h1>🔐 Login.jsx 상세 코드 가이드</h1>
+
+    <div class="section">
+        <h3>1. 리액트 입문자를 위한 핵심 문법</h3>
+        <div class="concept-box">
+            <b>입력창의 '실시간 기억' (useState)</b><br>
+            <span class="code-tag">onChange={(e) => setUserId(e.target.value)}</span><br>
+            사용자가 키보드를 칠 때마다 그 글자를 <code>userId</code>라는 변수에 실시간으로 담습니다. 
+            리액트에서는 화면에 보이는 글자와 실제 변수 값을 이렇게 항상 일치시키는 것이 기본입니다.
+        </div>
+        <div class="concept-box">
+            <b>페이지 이동 (useNavigate)</b><br>
+            <span class="code-tag">navigate('/')</span><br>
+            로그인이 성공하면 자동으로 메인 화면(Dashboard)으로 '점프'하게 만드는 도구입니다.
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>2. App.jsx와의 데이터 연결 (Props)</h3>
+        <p>이 부분이 가장 중요합니다! <b>Login 컴포넌트는 혼자 일하지 않습니다.</b></p>
+        <ul>
+            <li><code>App.jsx</code>에서 <code>setUser</code>라는 리모컨을 <b>Props(소품/도구)</b>로 전달받았습니다.</li>
+            <li>로그인 성공 시, 서버에서 받은 유저 정보(<span class="code-tag">res.data.user</span>)를 이 리모컨으로 <code>App.jsx</code>의 상태에 저장합니다.</li>
+            <li>그 순간, <code>App.jsx</code>가 유저 정보를 인지하고 <b>CCTV 대시보드 화면을 열어주게 됩니다.</b></li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h3>3. 서버와의 통신 (Axios & Async/Await)</h3>
+        <p>백엔드 서버(Flask)에 "이 사람 로그인해도 돼?"라고 물어보는 과정입니다.</p>
+        <ul>
+            <li><span class="code-tag">axios.post</span>: 서버에 데이터를 담은 편지를 보냅니다.</li>
+            <li><span class="code-tag">async / await</span>: 서버의 대답이 올 때까지 잠시 기다렸다가 다음 코드를 실행하라는 뜻입니다. (인터넷 속도에 따라 시간이 걸릴 수 있으니까요!)</li>
+            <li><b>SweetAlert2:</b> 성공 시 뜨는 "환영합니다" 팝업은 단순한 디자인이 아니라, 사용자에게 "로그인이 확실히 되었다"는 확신을 주는 좋은 UX 장치입니다.</li>
+        </ul>
+    </div>
+
+    <div class="section" style="border-color: #f87171;">
+        <h3 style="color: #f87171;">⚠️ 예외 처리 (Error Handling)</h3>
+        <p>아이디가 틀리거나 서버가 꺼져 있을 때, <code>catch</code> 블록이 실행됩니다. 
+        단순히 에러를 내뿜는 게 아니라 <code>setErrorMsg</code>를 통해 화면에 빨간색 경고 문구를 띄워주도록 아주 잘 설계되어 있습니다.</p>
+    </div>
+
+</body>
+</html>

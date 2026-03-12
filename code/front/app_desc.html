@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --accent: #38bdf8; --text: #f1f5f9; --bg: #020617; --card: #1e293b; --code: #1e1e1e; --green: #4ade80; --orange: #fb923c; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 30px; line-height: 1.8; }
+        .section { background: var(--card); border-radius: 15px; padding: 25px; margin-bottom: 30px; border: 1px solid #334155; }
+        h2 { color: var(--accent); border-bottom: 2px solid var(--accent); display: inline-block; margin-bottom: 20px; }
+        h3 { color: var(--orange); margin-top: 0; }
+        .line-explain { margin-bottom: 15px; padding-left: 15px; border-left: 3px solid #334155; }
+        .code-tag { background: #000; padding: 2px 6px; border-radius: 4px; color: var(--green); font-family: monospace; }
+        pre { background: var(--code); padding: 20px; border-radius: 10px; overflow-x: auto; color: #d4d4d4; font-size: 0.9rem; }
+        b { color: var(--accent); }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 App.jsx 상세 코드 가이드</h1>
+
+    <div class="section" style="border-color: #fbbf24;">
+    <h3 style="color: #fbbf24;">🔰 리액트 핵심 문법 요약</h3>
+    <table style="width: 100%; border-collapse: collapse; color: #cbd5e1;">
+        <tr style="border-bottom: 1px solid #334155;">
+            <th style="padding: 10px; text-align: left;">개념</th>
+            <th style="padding: 10px; text-align: left;">쉬운 설명</th>
+        </tr>
+        <tr>
+            <td style="padding: 10px;"><b>useState</b></td>
+            <td style="padding: 10px;">앱이 기억해야 할 <b>변수</b>. 값이 바뀌면 화면을 새로 고침함.</td>
+        </tr>
+        <tr>
+            <td style="padding: 10px;"><b>useEffect</b></td>
+            <td style="padding: 10px;">특정 상황(로그인 등)이 발생했을 때 실행되는 <b>자동화 명령</b>.</td>
+        </tr>
+        <tr>
+            <td style="padding: 10px;"><b>Socket</b></td>
+            <td style="padding: 10px;">서버와 실시간으로 대화하는 <b>무전기</b></td>
+        </tr>
+    </table>
+</div>
+
+    <div class="section">
+        <h3>1. 사용자 정보 기억하기 (State)</h3>
+        <div class="line-explain">
+            <span class="code-tag">const [user, setUser] = useState(...)</span><br>
+            우리 앱이 "지금 로그인한 사람이 누구인지"를 저장하는 변수입니다. 
+            단순히 변수만 만드는 게 아니라, <b>sessionStorage</b>(브라우저를 껐다 켜도 탭이 살아있으면 유지되는 저장소)에서 정보를 가져옵니다.
+        </div>
+        <div class="line-explain">
+            <span class="code-tag">try { return JSON.parse(savedUser) } catch { return null }</span><br>
+            저장된 데이터가 글자(String) 형태라 객체(Object)로 변환하는 과정입니다. 
+            만약 데이터가 깨져있으면 앱이 멈추지 않고 그냥 로그아웃 상태(<span class="code-tag">null</span>)로 돌아가게 만드는 <b>안전장치</b>입니다.
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>2. 실시간 통신 연결 (Socket.IO)</h3>
+        <div class="line-explain">
+            <span class="code-tag">useEffect(() => { ... }, [user])</span><br>
+            이 함수는 <b>"로그인한 유저 정보가 바뀔 때마다"</b> 실행됩니다. 로그인을 하면 연결을 시작하고, 로그아웃하면 연결을 끊기 위해서입니다.
+        </div>
+        <div class="line-explain">
+            <span class="code-tag">window.location.hostname</span><br>
+            내 컴퓨터 주소를 자동으로 찾아줍니다. 'localhost'든 '192.168...'이든 알아서 서버 주소를 맞춰주니 코드를 매번 고칠 필요가 없습니다.
+        </div>
+        <div class="line-explain">
+            <span class="code-tag">newSocket.on("disconnect", ...)</span><br>
+            서버가 갑자기 꺼지거나 인터넷이 끊기면 사용자에게 "세션이 만료되었습니다"라고 친절하게 알려주고 로그인 페이지로 쫓아냅니다. 보안상 아주 중요한 로직입니다.
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>3. 페이지 길찾기 (Routing & Guard)</h3>
+        <div class="line-explain">
+            <span class="code-tag">&lt;Route path="/" element={user ? &lt;Dashboard /&gt; : &lt;Navigate to="/login" /&gt;} /&gt;</span><br>
+            <b>"문지기"</b> 역할입니다. 메인 화면('/')에 들어가려고 할 때, 유저 정보가 없으면 강제로 로그인 페이지로 보냅니다. 
+            로그인 없이 CCTV 화면을 보는 것을 원천 차단합니다.
+        </div>
+    </div>
+
+    <div class="section">
+        <h3>4. 디자인 및 알림 설정</h3>
+        <div class="line-explain">
+            <span class="code-tag">ToastContainer</span><br>
+            화면 오른쪽 상단에 "연결 성공!", "로그인 실패" 같은 알림창을 띄워주는 컴포넌트입니다. 
+            코드에 적힌 <span class="code-tag">width: 550px</span> 설정은 알림창이 너무 작아서 글씨가 잘리는 걸 방지하기 위해 넉넉하게 키워둔 것입니다.
+        </div>
+    </div>
+
+    <pre><code>// 요약하자면 App.jsx는 이 앱의 '두뇌'입니다.
+// 1. 유저가 누구인지 확인하고 (Auth)
+// 2. 서버랑 실시간 대화 채널을 열고 (Socket)
+// 3. 자격이 없는 사람이 화면을 못 보게 막습니다 (Guard)</code></pre>
+
+</body>
+</html>

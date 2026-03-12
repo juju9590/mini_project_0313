@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --bg: #020617; --card: #1e293b; --accent: #f43f5e; --text: #f1f5f9; --code-bg: #0f172a; --highlight: #f59e0b; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); padding: 40px; line-height: 1.6; }
+        .main-title { font-size: 2rem; color: var(--highlight); border-bottom: 3px solid var(--highlight); padding-bottom: 15px; margin-bottom: 50px; }
+        .block { margin-bottom: 60px; animation: fadeIn 0.5s ease-in; }
+        .code-header { font-size: 1.2rem; font-weight: bold; margin-bottom: 15px; color: var(--accent); display: flex; align-items: center; }
+        .code-header::before { content: '◈'; margin-right: 10px; color: var(--highlight); }
+        .code-view { background: var(--code-bg); padding: 25px; border-radius: 12px; font-family: 'Fira Code', monospace; font-size: 0.9rem; border: 1px solid #334155; overflow-x: auto; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3); }
+        .explain-box { margin-top: 20px; padding: 20px; background: var(--card); border-radius: 0 0 12px 12px; border-top: 2px solid #334155; }
+        .explain-box h4 { margin: 0 0 10px 0; color: var(--highlight); font-size: 1rem; }
+        .explain-box p { margin: 0; font-size: 0.95rem; color: #cbd5e1; }
+        pre { margin: 0; white-space: pre-wrap; word-break: break-all; color: #d4d4d4; }
+        b { color: #fff; text-decoration: underline; text-underline-offset: 4px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <h1 class="main-title">Streaming Service (streaming.py) Analysis</h1>
+
+    <div class="block">
+        <div class="code-header">1. 초기 설정 및 수동 캡처 API</div>
+        <div class="code-view">
+<pre>
+import os
+import cv2
+import gevent
+from datetime import datetime
+from flask import Blueprint, Response, request, jsonify, current_app
+from ultralytics import YOLO
+from models import db, DetectionResult, FireResult, ReverseResult, ManualResult
+import routes.shared as shared # ✅ 공통 변수 참조
+
+streaming_bp = Blueprint('streaming', __name__)
+
+# 모델 로드
+# MODEL_PATH = 'best_SB.pt'
+MODEL_PATH = '/app/best_SB_openvino_model'
+model = YOLO(str(MODEL_PATH), task='detect')
+
+@streaming_bp.route('/api/capture_now', methods=['POST'])
+def capture_now():
+    try:
+        data = request.get_json()
+        video_type = data.get('type', 'webcam')
+        admin_name = data.get('adminName', '관리자')
+
+        is_sim = (video_type != 'webcam')
+        
+        if video_type == 'sim':
+            video_type = shared.current_broadcast_type if shared.current_broadcast_type else next(iter(shared.latest_frames), 'webcam')
+
+        frame = shared.latest_frames.get(video_type)
+        if frame is None:
+            return jsonify({"status": "error", "message": "영상을 찾을 수 없습니다."}), 400
+
+        new_alert = DetectionResult(
+            event_type='manual',
+            address="관리자 수동 캡처 구역",
+            latitude=shared.sim_coords["lat"],
+            longitude=shared.sim_coords["lng"],
+            is_resolved=True,
+            feedback=True,
+            resolved_at=datetime.now(),
+            is_simulation=is_sim,
+            resolved_by=admin_name
+        )
+        db.session.add(new_alert)
+        db.session.flush()
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"manual_{new_alert.id}_{ts}.jpg"
+        filepath = os.path.join(shared.CAPTURE_DIR, filename)
+        cv2.imwrite(filepath, frame)
+
+        manual_detail = ManualResult(
+            result_id=new_alert.id,
+            image_path=f"/static/captures/{filename}",
+            memo="메모 없음"
+        )
+        db.session.add(manual_detail)
+        db.session.commit()
+
+        return jsonify({
+            "status": "success",
+            "db_id": new_alert.id, 
+            "image_url": manual_detail.image_path
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"status": "error", "message": str(e)}), 500
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 모듈 임포트 및 관리자 수동 캡처</h4>
+            <p>초기화 단계에서 추론 속도 향상을 위해 OpenVINO로 최적화된 YOLO 모델을 로드합니다. <code>capture_now</code> API는 관제자가 현재 보고 있는 화면(웹캠 또는 시뮬레이션)을 즉각 캡처하는 기능입니다. 공유 변수(<code>shared.latest_frames</code>)에서 최신 프레임을 가져와 이미지 파일로 저장하고, 동시에 DB(<code>DetectionResult</code>, <code>ManualResult</code>)에 이력을 남겨 사후 관리를 가능하게 합니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">2. 메모 업데이트 API</div>
+        <div class="code-view">
+<pre>
+# 📝 메모를 업데이트하는 API (수동 캡처 후 호출됨)
+@streaming_bp.route('/api/update_capture_memo', methods=['POST'])
+def update_capture_memo():
+    try:
+        data = request.get_json()
+        db_id = data.get('db_id')
+        memo = data.get('memo', '').strip()
+        
+        print(f"📝 [메모 업데이트 시도] ID: {db_id}, 내용: {memo}")
+
+        if not db_id:
+            return jsonify({"status": "error", "message": "ID가 누락되었습니다."}), 400
+
+        # ManualResult 테이블에서 부모 ID(result_id)로 조회
+        detail = ManualResult.query.filter_by(result_id=db_id).first()
+        
+        if detail:
+            detail.memo = memo
+            db.session.commit()
+            print(f"✅ [메모 업데이트 성공] ID: {db_id}")
+            return jsonify({"status": "success"}), 200
+        else:
+            print(f"⚠️ [메모 업데이트 실패] ID {db_id}를 찾을 수 없습니다.")
+            return jsonify({"status": "error", "message": "기록을 찾을 수 없습니다."}), 404
+            
+    except Exception as e:
+        db.session.rollback()
+        print(f"❌ [메모 업데이트 에러]: {str(e)}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 캡처된 이미지에 대한 부가 정보 저장</h4>
+            <p>수동 캡처가 완료된 직후, 관리자가 해당 상황에 대한 설명을 추가할 수 있도록 지원하는 API입니다. 캡처 시 발급받은 <code>db_id</code>를 기반으로 <code>ManualResult</code> 테이블을 조회하여 <b>memo</b> 필드를 업데이트합니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">3. gen_frames() - Part 1: 비디오 소스 및 초기 설정</div>
+        <div class="code-view">
+<pre>
+def gen_frames(video_type, socketio, app):
+    is_sim = (video_type != 'webcam')
+
+    if video_type == "webcam":
+        rtmp_url = "rtmp://127.0.0.1:19350/live/stream"
+        hls_url = "http://localhost:18089/hls/stream.m3u8"
+        os.environ["OPENCV_FFMPEG_READ_ATTEMPTS"] = "8192"
+        # os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000000|rtmp_transport;tcp|fflags;nobuffer|flags;low_delay"
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "probesize;32|analyzeduration;0|rtmp_transport;tcp|fflags;nobuffer|flags;low_delay"
+        # camera = cv2.VideoCapture(hls_url)
+        camera = cv2.VideoCapture(rtmp_url, cv2.CAP_FFMPEG)
+        camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+    else:
+        file_name = shared.current_video_file.get(video_type, f"{video_type}.mp4")
+        video_path = os.path.join(os.getcwd(), "assets", file_name)
+        camera = cv2.VideoCapture(video_path)
+    
+    frame_count = 0
+    skip_frames = 3 
+    last_plot = None
+    fail_count = 0
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 실시간 스트리밍 지연시간 최소화</h4>
+            <p>스트리밍을 생성하는 핵심 제너레이터 함수의 시작부입니다. 영상 타입이 웹캠(실제 환경)일 경우 <b>RTMP 프로토콜</b>을 사용하며, OpenCV의 FFMPEG 옵션을 세밀하게 조정하여 버퍼링을 없애고 <b>초저지연(Low Delay) 송출</b>이 가능하도록 설정했습니다. 시뮬레이션일 경우 로컬 폴더의 MP4 파일을 불러옵니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">4. gen_frames() - Part 2: 화재 감지 및 알림 로직</div>
+        <div class="code-view">
+<pre>
+    try:
+        while True:
+            # 시뮬레이션 중단 체크
+            if video_type != "webcam" and shared.current_broadcast_type != video_type:
+                break
+
+            success, frame = camera.read()
+            if not success:
+                fail_count += 1
+                gevent.sleep(0.1)
+                if fail_count > 30: break
+                continue
+
+            fail_count = 0
+            frame_count += 1
+            display_frame = frame
+            shared.latest_frames[video_type] = frame.copy()
+
+            # 1️⃣ [화재 감지 로직]
+            if video_type in ["fire", "webcam"]:
+                if frame_count % (skip_frames + 1) == 0:
+                    results = model.predict(frame, conf=0.4, verbose=False)
+                    last_plot = results[0].plot()
+
+                    if len(results[0].boxes) > 0 and not shared.alert_sent_session[video_type]:
+                        shared.alert_sent_session[video_type] = True
+                        curr_lat = 37.5413 if video_type == "webcam" else shared.sim_coords["lat"]
+                        curr_lng = 126.8381 if video_type == "webcam" else shared.sim_coords["lng"]
+
+                        with app.app_context():
+                            new_alert = DetectionResult(
+                                event_type='fire',
+                                latitude=curr_lat, longitude=curr_lng,
+                                address="서울시 화재 관제구역", is_simulation=is_sim, is_resolved=False
+                            )
+                            db.session.add(new_alert)
+                            db.session.flush()
+
+                            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            filename = f"fire_{new_alert.id}_{ts}.jpg"
+                            filepath = os.path.join(shared.CAPTURE_DIR, filename)
+                            cv2.imwrite(filepath, last_plot)
+
+                            fire_detail = FireResult(
+                                result_id=new_alert.id,
+                                image_path=f"/static/captures/{filename}",
+                                fire_severity="심각"
+                            )
+                            db.session.add(fire_detail)
+                            db.session.commit()
+                            db_id = new_alert.id
+
+                        socketio.emit('anomaly_detected', {
+                            "alert_id": db_id,
+                            "type": shared.ANOMALY_DATA[video_type]['type'], 
+                            "lat": curr_lat, "lng": curr_lng,
+                            "video_origin": video_type
+                        })
+                display_frame = last_plot if last_plot is not None else frame
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 인공지능 화재 감지 및 실시간 전파 루프</h4>
+            <p>메인 스트리밍 루프입니다. 서버 부하를 줄이기 위해 매 프레임이 아닌 <code>skip_frames</code>마다 YOLO 화재 감지 모델을 구동합니다. 화재 객체가 발견되면, <b>한 번만 알람을 보내기 위해 <code>shared.alert_sent_session</code> 플래그를 관리</b>하며, 해당 프레임을 서버에 캡처 저장 및 DB에 기록한 뒤, 즉각적으로 <code>SocketIO</code>를 통해 관제소 브라우저로 긴급 알림 이벤트를 브로드캐스트합니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">5. gen_frames() - Part 3: 역주행 감지 및 프레임 송출</div>
+        <div class="code-view">
+<pre>
+            # 2️⃣ [역주행 감지 로직]
+            elif video_type == "reverse":
+                if not shared.alert_sent_session["reverse"]:
+                    if camera.get(cv2.CAP_PROP_POS_FRAMES) >= 10:
+                        shared.alert_sent_session["reverse"] = True
+                        with app.app_context():
+                            new_alert = DetectionResult(
+                                event_type="reverse",
+                                latitude=shared.sim_coords["lat"], longitude=shared.sim_coords["lng"],
+                                address="역주행 발생 구역", is_simulation=is_sim, is_resolved=False
+                            )
+                            db.session.add(new_alert)
+                            db.session.flush()
+
+                            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                            filename = f"reverse_{new_alert.id}_{ts}.jpg"
+                            filepath = os.path.join(shared.CAPTURE_DIR, filename)
+                            cv2.imwrite(filepath, frame)
+
+                            reverse_detail = ReverseResult(
+                                result_id=new_alert.id,
+                                image_path=f"/static/captures/{filename}",
+                                vehicle_info="감지된 차량"
+                            )
+                            db.session.add(reverse_detail)
+                            db.session.commit()
+                            db_id = new_alert.id
+
+                        socketio.emit('anomaly_detected', {
+                            "alert_id": db_id, "type": "역주행", 
+                            "lat": shared.sim_coords["lat"], "lng": shared.sim_coords["lng"], 
+                            "video_origin": "reverse"
+                        })
+                display_frame = cv2.resize(display_frame, (640, 360))
+            ret, buffer = cv2.imencode('.jpg', display_frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+            if not ret: continue
+            yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            gevent.sleep(0.001)
+    finally:
+        camera.release()
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 시뮬레이션 이벤트 기반 탐지 및 브라우저 송출</h4>
+            <p>역주행 영상의 경우, 모델 추론 대신 영상의 재생 시점(예: 10프레임 이상)을 조건으로 역주행 이벤트를 트리거하는 시뮬레이션 방식입니다. 화재와 동일하게 DB 저장 및 <code>SocketIO</code>를 통한 알람이 발생합니다. 마지막으로, 모든 최종 프레임은 크기 조정(640x360) 및 JPEG 압축을 거친 후, <code>yield</code>를 이용해 <b>M-JPEG 스트림 규격으로 브라우저에 연속 송출</b>됩니다.</p>
+        </div>
+    </div>
+
+    <div class="block">
+        <div class="code-header">6. Video Feed API 라우트</div>
+        <div class="code-view">
+<pre>
+@streaming_bp.route('/api/video_feed')
+def video_feed():
+    video_type = request.args.get('type', 'fire')
+    socketio = current_app.extensions['socketio']
+    app = current_app._get_current_object() 
+    return Response(gen_frames(video_type, socketio, app),
+                    mimetype='multipart/x-mixed-replace; boundary=frame')
+</pre>
+        </div>
+        <div class="explain-box">
+            <h4>[설명] 브라우저 연결 엔드포인트</h4>
+            <p>클라이언트(HTML <code>&lt;img&gt;</code> 태그)가 영상을 요청하는 핵심 URL입니다. 쿼리 파라미터로 받은 <code>video_type</code>을 기반으로 <code>gen_frames()</code> 제너레이터를 호출하고, 이를 HTTP의 <code>multipart/x-mixed-replace</code> 응답으로 반환함으로써 브라우저가 화면을 지속적으로 갱신하도록 만듭니다.</p>
+        </div>
+    </div>
+
+</body>
+</html>

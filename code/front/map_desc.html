@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --accent: #3b82f6; --bg: #020617; --card: #1e293b; --code: #0f172a; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: #e2e8f0; padding: 20px; }
+        .func-block { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 30px; border-left: 5px solid var(--accent); }
+        pre { background: var(--code); padding: 15px; border-radius: 8px; border: 1px solid #334155; color: #4ade80; overflow-x: auto; }
+        .line { margin: 8px 0; padding-left: 10px; border-left: 2px solid #64748b; }
+    </style>
+</head>
+<body>
+
+    <h1>🗺️ MapPanel.jsx 상세 코드 리뷰</h1>
+
+    <div class="func-block">
+        <h3>1. <code>initMap()</code> : 지도 마운트 및 보정</h3>
+        <pre>
+if (mapRef.current) {
+  mapRef.current.relayout();
+  mapRef.current.setCenter(mapRef.current.getCenter());
+  return;
+}
+        </pre>
+        <div class="line"><b>[라인 분석]</b> 지도가 이미 생성되어 있다면 <code>relayout()</code>을 호출해 영역을 다시 계산합니다.</div>
+        <div class="line"><b>[핵심]</b> 외부 라이브러리인 카카오 맵은 DOM의 너비/높이가 변하면 즉시 갱신되지 않는 경우가 많은데, 이 로직이 그 문제를 완벽하게 방어합니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>2. 🛠️ 애니메이션 보정 (인터벌 처리)</h3>
+        <pre>
+const animationInterval = setInterval(() => {
+  if (mapRef.current) {
+    mapRef.current.relayout();
+    mapRef.current.setCenter(mapRef.current.getCenter());
+  }
+}, 50);
+        </pre>
+        <div class="line"><b>[라인 분석]</b> 50ms마다 0.6초간 강제로 지도를 다시 그립니다.</div>
+        <div class="line"><b>[의도]</b> 사이드바가 열리거나 창 크기가 변할 때 생기는 찰나의 '레이아웃 떨림'을 잡아주기 위한 하드코딩 전략입니다. 현장감이 중요한 관제 화면에서는 매우 유용한 트릭입니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>3. 긴급 상황 시각화</h3>
+        <pre>
+background: isEmergency ? '#7f1d1d' : '#111827'
+        </pre>
+        <div class="line"><b>[라인 분석]</b> <code>isEmergency</code> 상태값에 따라 헤더 배경색을 빨간색 계열로 즉시 변경합니다.</div>
+        <div class="line"><b>[의도]</b> 관제사에게 사고 발생을 직관적으로 인지시키기 위한 시각적 알림 체계입니다.</div>
+    </div>
+
+</body>
+</html>

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>교통 AI 백엔드 코드 리뷰</title>
+    <style>
+        :root { --bg: #020617; --side: #0f172a; --card: #1e293b; --accent: #f59e0b; --text: #f1f5f9; --sub: #94a3b8; }
+        body, html { margin: 0; padding: 0; height: 100%; font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); overflow: hidden; }
+        .layout { display: flex; height: 100vh; }
+
+        .sidebar { width: 320px; background: var(--side); border-right: 1px solid #1e293b; padding: 25px 15px; overflow-y: auto; }
+        .sidebar h2 { font-size: 1rem; color: var(--accent); margin-bottom: 20px; padding-left: 10px; }
+        .folder { margin-left: 15px; margin-top: 10px; color: var(--sub); font-size: 0.9rem; font-weight: 600; }
+        .file { margin-left: 30px; margin-top: 6px; cursor: pointer; padding: 7px 12px; border-radius: 6px; font-size: 0.85rem; color: #cbd5e1; transition: 0.2s; }
+        .file:hover { background: #1e293b; color: white; }
+        .file.active { background: #334155; color: var(--accent); font-weight: bold; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+
+        .main { flex: 1; padding: 40px; overflow-y: auto; position: relative; }
+        .header { border-bottom: 1px solid #334155; padding-bottom: 20px; margin-bottom: 30px; }
+        .badge { background: var(--accent); color: var(--bg); padding: 4px 12px; border-radius: 50px; font-weight: 800; font-size: 0.7rem; text-transform: uppercase; }
+        .welcome { height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--sub); }
+    </style>
+</head>
+<body>
+
+<div class="layout">
+    <div class="sidebar">
+        <h2>📂 BACKEND_FLASK</h2>
+        
+        <div class="file" onclick="show('app_desc.html', this)">📄 app.py</div>
+        <div class="file" onclick="show('models_desc.html', this)">📄 models.py</div>
+
+        <div class="folder">📁 detectors</div>
+        <div class="file" onclick="show('base_detector.html', this)">📄 base_detector.py</div>
+        <div class="file" onclick="show('fire_detector.html', this)">📄 fire_detector.py</div>
+        <div class="file" onclick="show('reverse_detector.html', this)">📄 reverse_detector.py</div>
+        <div class="file" onclick="show('manager.html', this)">📄 manager.py</div>
+
+        <div class="folder">📁 routes</div>
+        <div class="file" onclick="show('member_desc.html', this)">📄 member.py</div>
+        <div class="file" onclick="show('shared_desc.html', this)">📄 shared.py</div>
+        <div class="file" onclick="show('simulation_desc.html', this)">📄 simulation.py</div>
+        <div class="file" onclick="show('streaming_desc.html', this)">📄 streaming.py</div>
+        <div class="file" onclick="show('its_desc.html', this)">📄 its.py</div>
+        <div class="file" onclick="show('result_desc.html', this)">📄 result.py</div>
+    </div>
+
+    <div class="main" id="displayArea">
+        <div id="welcome" class="welcome">
+            <h1 style="color:var(--accent)">Backend Code Review</h1>
+            <p>분석할 파일을 왼쪽에서 선택하세요.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    function show(fileName, el) {
+        const welcome = document.getElementById('welcome');
+        if (welcome) welcome.style.display = 'none';
+        
+        let displayArea = document.getElementById('displayArea');
+        displayArea.innerHTML = `
+            <div class="header">
+                <span class="badge">Backend Review</span>
+                <h1>${el.innerText} 상세 분석</h1>
+            </div>
+            <iframe src="${fileName}" style="width:100%; height:calc(100vh - 150px); border:none; border-radius:10px; background: white;"></iframe>
+        `;
+        
+        document.querySelectorAll('.file').forEach(f => f.classList.remove('active'));
+        el.classList.add('active');
+    }
+</script>
+</body>
+</html>

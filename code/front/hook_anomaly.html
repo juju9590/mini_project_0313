@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <style>
+        :root { --accent: #38bdf8; --bg: #020617; --card: #1e293b; --code: #0f172a; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: #e2e8f0; padding: 20px; }
+        .func-block { background: var(--card); border-radius: 12px; padding: 20px; margin-bottom: 30px; border-left: 5px solid var(--accent); }
+        pre { background: var(--code); padding: 15px; border-radius: 8px; border: 1px solid #334155; color: #4ade80; overflow-x: auto; }
+        .line { margin: 8px 0; padding-left: 10px; border-left: 2px solid #64748b; }
+    </style>
+</head>
+<body>
+
+    <h1>🧠 useAnomalyDetection.js 상세 코드 리뷰</h1>
+
+    <div class="func-block">
+        <h3>1. <code>fetchInitialData()</code> : 데이터 초기화</h3>
+        <pre>
+const response = await axios.get(`http://${host}:5000/api/pending_alerts`);
+if (response.data.length > 0) {
+  setPendingAlerts(response.data);
+  setIsEmergency(true);
+}
+        </pre>
+        <div class="line"><b>[라인 분석]</b> 앱 실행 시 DB에 저장된 미조치 사고를 불러옵니다.</div>
+        <div class="line"><b>[의도]</b> 새로고침 시에도 관제 흐름이 끊기지 않도록 상태를 복구합니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>2. <code>resolveEmergency()</code> : 개별 사고 조치</h3>
+        <pre>
+const result = await Swal.fire({ ... }); // 1. 관리자 피드백 요청(정탐/오탐)
+const isCorrect = result.isConfirmed ? 1 : 0; // 2. 결과값을 1 또는 0으로 변환
+await axios.post(`.../resolve_alert_db`, { ... }); // 3. 백엔드 DB 업데이트
+removeMarker(alertId); // 4. 지도 마커 즉시 제거
+socket.emit("resolve_emergency", { ... }); // 5. 타 관리자 동기화
+        </pre>
+        <div class="line"><b>[핵심]</b> 관리자의 의사결정을 시스템 전체에 전파하는 '핵심 액션' 함수입니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>3. <code>resolveAllAlertsAction()</code> : 일괄 조치 (최적화)</h3>
+        <pre>
+const alertIds = alerts.map(a => a.id); // 모든 사고 ID 수집
+await axios.post(`.../resolve_alerts_bulk`, { alertIds, ... }); // 벌크 API 호출
+alertIds.forEach(id => removeMarker(id)); // 모든 마커 한 번에 정리
+        </pre>
+        <div class="line"><b>[핵심]</b> 반복적인 API 호출을 하나의 요청으로 묶어 서버 부하를 방지합니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>4. <code>handleAnomaly()</code> : 실시간 사고 감지</h3>
+        <pre>
+const isRealtime = !isSimulationValue; // 실제 데이터인지 확인
+if (!isRealtime) { /* DB 업데이트 로직 */ } // 시뮬레이션 시에만 주소 업데이트
+processAlert(convertedAddress); // 지도 이동 및 팝업 표시
+        </pre>
+        <div class="line"><b>[핵심]</b> 데이터 출처에 따라 지오코딩 API 사용 여부를 결정하는 스마트한 로직입니다.</div>
+    </div>
+
+    <div class="func-block">
+        <h3>5. <code>handleRemoteResolve()</code> : 원격 처리 동기화</h3>
+        <pre>
+if (data.senderId === socket.id) return; // 내가 보낸 신호는 무시
+removeMarker(data.alertId); // 타인이 처리한 사고 마커 제거
+setPendingAlerts(...); // 목록에서 삭제
+        </pre>
+        <div class="line"><b>[핵심]</b> 팀 단위 관제 시 서로의 조치 상태를 즉각 동기화하여 중복 작업을 방지합니다.</div>
+    </div>
+
+</body>
+</html>
