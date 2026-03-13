@@ -109,7 +109,10 @@ def gen_frames(video_type, socketio, app):
         hls_url = "http://rtmp:8080/hls/stream.m3u8"
         
         # camera = cv2.VideoCapture(hls_url)
-        camera = cv2.VideoCapture(rtmp_url, cv2.CAP_FFMPEG)
+        # camera = cv2.VideoCapture(rtmp_url, cv2.CAP_FFMPEG)
+        camera = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
         camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # 버퍼 줄임 (실시간에서 지연 줄이는 옵션)
     else:
         file_name = shared.current_video_file.get(video_type, f"{video_type}.mp4")
