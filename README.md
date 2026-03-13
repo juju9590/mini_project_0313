@@ -29,57 +29,6 @@ conda activate tads
 
 pip install -r requirements.txt
 
-=======================.env==========================
-아래 내용을 넣어서 .env로 저장하고 프로젝트 폴더에 추가
-
-# Flask Settings
-FLASK_APP=app.py
-FLASK_ENV=development
-SECRET_KEY=your_generated_random_secret_key
-
-# Database Settings
-DB_USER=root
-DB_PASSWORD=12341234
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=tads
-
-# Application Settings
-PORT=5000
-HOST=0.0.0.0
-
-# ITS API Settings
-ITS_API_KEY=22f088a782aa49f6a441b24c2b36d4ec
-
-# Flask Settings
-FLASK_APP=app.py
-FLASK_ENV=development
-SECRET_KEY=your_generated_random_secret_key
-
-# Database Settings
-DB_USER=root
-DB_PASSWORD=12341234
-DB_HOST=localhost
-DB_PORT=3306
-DB_NAME=tads
-
-# Application Settings
-PORT=5000
-HOST=0.0.0.0
-
-# ITS API Settings
-ITS_API_KEY=22f088a782aa49f6a441b24c2b36d4ec
-
-# Kakao Map API Settings
-VITE_KAKAO_MAP_API_KEY=de202e5f1e1b8c26cb092fb674de768d
-
-# Detection Settings
-CONFIDENCE_THRESHOLD=0.66
-
-# Detection Settings
-CONFIDENCE_THRESHOLD=0.66
-====================================================
-
 # DB 초기화
 workbench나 vscode database에서
 CREATE DATABASE tads;
@@ -94,7 +43,9 @@ flask db upgrade
 
 python app.py로 실행
 
-Simulation===================================================================================
+Simulation/.env==============================================================
 
 N드라이브/이동훈/assets 폴더 다운 받아서
-backend_flask/ 에 넣으면 정상동작.
+backend_flask/ 에 넣기
+
+env.txt 다운 받아서 프로젝트 폴더 최상단에 넣고 이름 .env로 바꾸기
